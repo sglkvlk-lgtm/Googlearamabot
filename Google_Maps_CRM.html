@@ -29,8 +29,14 @@ body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',system-ui,sans-
 #progBar{height:3px;background:var(--p);width:0%;transition:width .4s;flex-shrink:0}
 #progBar.active{animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-#progMsg{background:rgba(79,70,229,.12);color:var(--a);font-size:.78rem;padding:5px 20px;display:none;border-bottom:1px solid rgba(79,70,229,.2);flex-shrink:0}
-#progMsg.show{display:block}
+#progMsg{background:rgba(79,70,229,.12);color:var(--a);font-size:.78rem;padding:5px 20px;display:none;border-bottom:1px solid rgba(79,70,229,.2);flex-shrink:0;align-items:center;justify-content:space-between;gap:12px}
+#progMsg.show{display:flex}
+#progMsgTxt{flex:1}
+#progTimer{display:flex;align-items:center;gap:6px;font-size:.76rem;white-space:nowraw;font-variant-numeric:tabular-nums}
+#progTimer .dot{width:7px;height:7px;border-radius:50%;background:var(--s);animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+#progTimer.stale{color:var(--d)}
+#progTimer.stale .dot{background:var(--d);animation:none}
 
 /* STATS */
 #stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:14px 20px;flex-shrink:0;border-bottom:1px solid var(--br)}
@@ -132,7 +138,7 @@ tbody td{padding:9px 14px;font-size:.85rem;vertical-align:middle}
 </div>
 
 <div id="progBar"></div>
-<div id="progMsg" id="progMsg"></div>
+<div id="progMsg"><span id="progMsgTxt"></span><span id="progTimer"><span class="dot"></span><span id="progTimerVal">0:00</span></span></div>
 
 <!-- STATS -->
 <div id="stats">
@@ -179,7 +185,7 @@ tbody td{padding:9px 14px;font-size:.85rem;vertical-align:middle}
 <!-- EDIT MODAL -->
 <div class="ovl" id="modal" onclick="if(event.target===this)closeModal()">
   <div class="mdl">
-    <h3><i class="fas fa-edit"></i>Firma Døzenle</h3>
+    <h3><i class="fas fa-edit"></i>Firma Düzenle</h3>
     <input type="hidden" id="eId"/>
     <div class="fl">
       <div class="fg"><label>Durum</label>
@@ -207,6 +213,7 @@ tbody td{padding:9px 14px;font-size:.85rem;vertical-align:middle}
 const SK = 'gmaps_crm_v3';
 let db = [], fil = [], cur = 1, sCol = '', sDir = 1, _id = 1;
 const PG = 30;
+let _startTs = 0, _lastActivity = 0, _timerT = null;
 
 // ─── STORAGE ──────────────────────────────────────────────────────────────────
 function load() {
@@ -226,11 +233,29 @@ function requestScrape() {
   if (!url) return;
   // Store pending URL for Claude to pick up
   localStorage.setItem('gmaps_crm_pending', JSON.stringify({url, ts: Date.now(), status:'pending'}));
+  _startTs = Date.now();
+  _lastActivity = Date.now();
   setProgress(10, '⏳ Claude scraping başlatıyor... Lütfen bekleyin.');
   document.getElementById('fetchBtn').disabled = true;
   document.getElementById('fetchTxt').textContent = 'Çekiliyor...';
+  // Start elapsed timer
+  clearInterval(_timerT);
+  _timerT = setInterval(updateTimer, 1000);
   // Poll for completion
   window._pollT = setInterval(checkPending, 2000);
+}
+
+function updateTimer() {
+  const elapsed = Math.floor((Date.now() - _startTs) / 1000);
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
+  document.getElementById('progTimerVal').textContent = mins + ':' + (secs < 10 ? '0' : '') + secs;
+  const timerEl = document.getElementById('progTimer');
+  const stale = (Date.now() - _lastActivity) > 60000;
+  timerEl.className = stale ? 'stale' : '';
+  if (stale) {
+    document.getElementById('progMsgTxt').textContent = '⚠ Claude yanıt vermiyor — lütfen bekleyin veya sayfayı yenileyin.';
+  }
 }
 
 function checkPending() {
@@ -252,12 +277,18 @@ function checkPending() {
       setProgress(0, '');
       toast('Hata: ' + (p.msg||'Bilinmeyen'), 'err');
     } else if (p.progress) {
+      _lastActivity = Date.now();
+      document.getElementById('progTimer').className = '';
       setProgress(p.progress.pct||20, p.progress.msg||'Scraping...');
     }
   } catch(e) {}
 }
 
 function resetFetch() {
+  clearInterval(_timerT); _timerT = null;
+  _startTs = 0; _lastActivity = 0;
+  document.getElementById('progTimer').className = '';
+  document.getElementById('progTimerVal').textContent = '0:00';
   document.getElementById('fetchBtn').disabled = false;
   document.getElementById('fetchTxt').textContent = 'Veri Çek';
   document.getElementById('urlInput').value = '';
@@ -269,7 +300,7 @@ function setProgress(pct, msg) {
   const msgEl = document.getElementById('progMsg');
   if (pct > 0) {
     bar.style.width = pct + '%';
-    msgEl.textContent = msg;
+    document.getElementById('progMsgTxt').textContent = msg;
     msgEl.className = 'show';
   } else {
     bar.style.width = '0%';
@@ -308,6 +339,7 @@ window.crmInject = function(businesses, sourceUrl, progress) {
   save(); doFilter(); updateStats();
   setProgress(0, '');
   clearInterval(window._pollT);
+  clearInterval(_timerT); _timerT = null;
   resetFetch();
   toast('\u2705 ' + added + ' firma CRM\u2019e eklendi!', 'ok');
   return added + ' firma eklendi';
@@ -349,7 +381,7 @@ function render() {
   const tot = fil.length;
   document.getElementById('tblCount').textContent = '(' + tot + ' kayıt)';
   if (!tot) {
-    tbody.innerHTML = '<tr><td colspan="9"><div class="emp"><i class="fas fa-map-marker-alt"></i>Henøz firma yok.<br><small style="color:var(--mt)">Yukarıya bir Google Maps URL\'si yapıştırın</small></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9"><div class="emp"><i class="fas fa-map-marker-alt"></i>Henüz firma yok.<br><small style="color:var(--mt)">Yukarıya bir Google Maps URL\'si yapıştırın</small></div></td></tr>';
     document.getElementById('pgInfo').textContent = '';
     document.getElementById('pgNav').innerHTML = '';
     return;
