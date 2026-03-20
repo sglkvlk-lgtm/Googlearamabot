@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Google Maps CRM</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--p:#4f46e5;--pd:#3730a3;--a:#818cf8;--s:#10b981;--w:#f59e0b;--d:#ef4444;--bg:#0f172a;--sf:#1e293b;--sf2:#273248;--br:#334155;--tx:#e2e8f0;--mt:#94a3b8}
+body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* TOP BAR */
+#topbar{background:var(--sf);border-bottom:1px solid var(--br);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:12px}
+.brand{font-size:1.1rem;font-weight:800;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.brand i{color:var(--a)}
+.url-row{flex:1;display:flex;gap:8px;max-width:700px}
+#urlInput{flex:1;background:var(--bg);border:1.5px solid var(--br);color:var(--tx);border-radius:8px;padding:7px 14px;font-size:.88rem;outline:none;transition:border-color .2s}
+#urlInput:focus{border-color:var(--p);box-shadow:0 0 0 3px rgba(79,70,229,.15)}
+#urlInput::placeholder{color:var(--mt)}
+#fetchBtn{background:var(--p);color:#fff;border:none;border-radius:8px;padding:7px 18px;font-weight:700;cursor:pointer;white-space:nowrap;font-size:.85rem;display:flex;align-items:center;gap:6px;transition:background .2s}
+#fetchBtn:hover:not(:disabled){background:var(--pd)}
+#fetchBtn:disabled{opacity:.5;cursor:not-allowed}
+.topbar-btns{display:flex;gap:6px;flex-shrink:0}
+.tb-btn{background:transparent;border:1px solid var(--br);color:var(--mt);border-radius:7px;padding:6px 12px;font-size:.78rem;cursor:pointer;transition:all .15s;white-space:nowrap}
+.tb-btn:hover{background:var(--sf2);color:var(--tx)}
+
+/* PROGRESS */
+#progBar{height:3px;background:var(--p);width:0%;transition:width .4s;flex-shrink:0}
+#progBar.active{animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+#progMsg{background:rgba(79,70,229,.12);color:var(--a);font-size:.78rem;padding:5px 20px;display:none;border-bottom:1px solid rgba(79,70,229,.2);flex-shrink:0}
+#progMsg.show{display:block}
+
+/* STATS */
+#stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:14px 20px;flex-shrink:0;border-bottom:1px solid var(--br)}
+.sc{background:var(--sf);border:1px solid var(--br);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px}
+.sc-ic{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0}
+.sc-v{font-size:1.6rem;font-weight:800;line-height:1}
+.sc-l{color:var(--mt);font-size:.74rem;margin-top:2px}
+
+/* TABLE AREA */
+#tableWrap{flex:1;overflow:hidden;display:flex;flex-direction:column}
+#tableHdr{padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--br)}
+.tit{font-weight:700;font-size:.9rem;display:flex;align-items:center;gap:6px}
+.tit i{color:var(--a)}
+#tblCount{color:var(--mt);font-size:.78rem}
+.filters{display:flex;gap:8px}
+#srch,#stFlt{background:var(--bg);border:1px solid var(--br);color:var(--tx);border-radius:7px;padding:6px 12px;font-size:.82rem;outline:none}
+#srch:focus,#stFlt:focus{border-color:var(--p)}
+#srch{min-width:180px}
+#tbodyWrap{flex:1;overflow-y:auto}
+table{width:100%;border-collapse:collapse}
+thead th{position:sticky;top:0;background:var(--bg);padding:9px 14px;color:var(--mt);font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--br);white-space:nowrap;cursor:pointer;user-select:none;z-index:1}
+thead th:hover{color:var(--tx)}
+tbody tr{border-bottom:1px solid var(--br);transition:background .1s}
+tbody tr:hover{background:var(--sf2)}
+tbody td{padding:9px 14px;font-size:.85rem;vertical-align:middle}
+.fn{font-weight:700;max-width:180px}
+.fn a{color:var(--a);text-decoration:none;font-size:.75rem;margin-left:4px;opacity:.7}
+.fn a:hover{opacity:1}
+.nt{color:var(--mt);font-size:.74rem;margin-top:2px}
+.dim{color:var(--mt);font-size:.76rem}
+.tg{background:rgba(79,70,229,.18);color:var(--a);border-radius:5px;padding:2px 8px;font-size:.72rem;white-space:nowrap}
+.str{color:var(--w);font-size:.78rem;letter-spacing:-1px}
+.ta{text-decoration:none;font-size:.82rem}
+.ta.ph{color:var(--s)}.ta.wb{color:var(--a)}
+.ta:hover{text-decoration:underline}
+.ssel{border:none;border-radius:16px;padding:3px 10px;font-size:.72rem;font-weight:700;cursor:pointer;background:transparent;-webkit-appearance:none;outline:none}
+.sYeni{background:rgba(148,163,184,.15)!important;color:#94a3b8}
+.sArandi{background:rgba(79,70,229,.15)!important;color:var(--a)}
+.sIlgileniyor{background:rgba(16,185,129,.15)!important;color:#6ee7b7}
+.sIlgilenmiyor{background:rgba(239,68,68,.15)!important;color:#fca5a5}
+.sMusteri{background:rgba(245,158,11,.15)!important;color:#fcd34d}
+.bic{width:26px;height:26px;border:none;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:.72rem;transition:all .12s}
+.be{background:rgba(79,70,229,.12);color:var(--a)}.be:hover{background:rgba(79,70,229,.28)}
+.bd{background:rgba(239,68,68,.1);color:#fca5a5}.bd:hover{background:rgba(239,68,68,.25)}
+.emp{text-align:center;padding:60px;color:var(--mt)}
+.emp i{font-size:2.5rem;margin-bottom:12px;color:var(--br);display:block}
+#pgWrap{padding:8px 20px;border-top:1px solid var(--br);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.pgi{color:var(--mt);font-size:.78rem}
+.pg{display:flex;gap:4px}
+.pgb{background:var(--sf);border:1px solid var(--br);color:var(--tx);border-radius:5px;padding:4px 9px;font-size:.78rem;cursor:pointer;transition:all .12s}
+.pgb:hover{background:var(--sf2);color:var(--a)}
+.pgb.act{background:var(--p);border-color:var(--p);color:#fff}
+.pgb:disabled{opacity:.4;cursor:not-allowed}
+
+/* MODAL */
+.ovl{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:none;align-items:center;justify-content:center}
+.ovl.open{display:flex}
+.mdl{background:var(--sf);border:1px solid var(--br);border-radius:14px;padding:24px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto}
+.mdl h3{font-size:.95rem;font-weight:700;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.mdl h3 i{color:var(--a)}
+.fl{display:flex;flex-direction:column;gap:14px}
+.fg label{display:block;color:var(--mt);font-size:.78rem;margin-bottom:4px}
+.fg input,.fg select,.fg textarea{width:100%;background:var(--bg);border:1px solid var(--br);color:var(--tx);border-radius:8px;padding:9px 12px;font-size:.85rem;outline:none;font-family:inherit}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--p)}
+.fg textarea{resize:vertical;min-height:70px}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mbtns{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.mbtn{border:none;border-radius:8px;padding:9px 18px;font-size:.85rem;font-weight:600;cursor:pointer}
+.mbtn.cancel{background:var(--sf2);color:var(--mt)}.mbtn.cancel:hover{color:var(--tx)}
+.mbtn.save{background:var(--p);color:#fff}.mbtn.save:hover{background:var(--pd)}
+
+/* TOAST */
+#toasts{position:fixed;bottom:20px;right:20px;z-index:200;display:flex;flex-direction:column;gap:6px}
+.tst{background:var(--sf2);border:1px solid var(--br);border-radius:9px;padding:10px 16px;font-size:.83rem;min-width:200px;box-shadow:0 4px 16px rgba(0,0,0,.4);animation:tin .25s ease;display:flex;align-items:center;gap:8px}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.tst.ok{border-left:3px solid var(--s)}.tst.err{border-left:3px solid var(--d)}.tst.info{border-left:3px solid var(--a)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--br);border-radius:3px}
+.hc{max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="brand"><i class="fas fa-map-marked-alt"></i>Google Maps CRM</div>
+  <div class="url-row">
+    <input id="urlInput" type="url" placeholder="Google Maps arama URL'sini yapıştırın... (google.com/maps/search/...)" oninput="checkUrl()"/>
+    <button id="fetchBtn" onclick="requestScrape()" disabled>
+      <i class="fas fa-rocket" id="fetchIco"></i><span id="fetchTxt">Veri Çek</span>
+    </button>
+  </div>
+  <div class="topbar-btns">
+    <button class="tb-btn" onclick="exportCSV()"><i class="fas fa-download me-1"></i>CSV</button>
+    <button class="tb-btn" onclick="exportJSON()"><i class="fas fa-code me-1"></i>JSON</button>
+    <button class="tb-btn" onclick="confirmClear()"><i class="fas fa-trash"></i></button>
+  </div>
+</div>
+
+<div id="progBar"></div>
+<div id="progMsg" id="progMsg"></div>
+
+<!-- STATS -->
+<div id="stats">
+  <div class="sc"><div class="sc-ic" style="background:rgba(79,70,229,.12)"><i class="fas fa-building" style="color:var(--a)"></i></div><div><div class="sc-v" id="sTotal">0</div><div class="sc-l">Toplam Firma</div></div></div>
+  <div class="sc"><div class="sc-ic" style="background:rgba(16,185,129,.12)"><i class="fas fa-phone" style="color:#6ee7b7"></i></div><div><div class="sc-v" id="sCalled">0</div><div class="sc-l">Arandı</div></div></div>
+  <div class="sc"><div class="sc-ic" style="background:rgba(245,158,11,.12)"><i class="fas fa-star" style="color:#fcd34d"></i></div><div><div class="sc-v" id="sRating">—</div><div class="sc-l">Ort. Puan</div></div></div>
+  <div class="sc"><div class="sc-ic" style="background:rgba(239,68,68,.12)"><i class="fas fa-fire" style="color:#fca5a5"></i></div><div><div class="sc-v" id="sInt">0</div><div class="sc-l">İlgileniyor</div></div></div>
+</div>
+
+<!-- TABLE -->
+<div id="tableWrap">
+  <div id="tableHdr">
+    <div class="tit"><i class="fas fa-list"></i>Firma Listesi <span id="tblCount"></span></div>
+    <div class="filters">
+      <input id="srch" placeholder="🔍  Ara..." oninput="doFilter()"/>
+      <select id="stFlt" onchange="doFilter()">
+        <option value="">Tüm Durumlar</option>
+        <option>Yeni</option><option>Arandı</option><option>İlgileniyor</option><option>İlgilenmiyor</option><option>Müşteri</option>
+      </select>
+    </div>
+  </div>
+  <div id="tbodyWrap">
+    <table>
+      <thead><tr>
+        <th onclick="sortBy('name')">Firma Adı</th>
+        <th onclick="sortBy('category')">Kategori</th>
+        <th>Adres</th>
+        <th onclick="sortBy('phone')">Telefon</th>
+        <th>Website</th>
+        <th onclick="sortBy('rating')">Puan</th>
+        <th>Saatler</th>
+        <th>Durum</th>
+        <th width="60"></th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div id="pgWrap">
+    <span class="pgi" id="pgInfo"></span>
+    <div class="pg" id="pgNav"></div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="ovl" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="mdl">
+    <h3><i class="fas fa-edit"></i>Firma Døzenle</h3>
+    <input type="hidden" id="eId"/>
+    <div class="fl">
+      <div class="fg"><label>Durum</label>
+        <select id="eSt"><option>Yeni</option><option>Arandı</option><option>İlgileniyor</option><option>İlgilenmiyor</option><option>Müşteri</option></select>
+      </div>
+      <div class="fr">
+        <div class="fg"><label>Telefon</label><input id="ePh"/></div>
+        <div class="fg"><label>Website</label><input id="eWb"/></div>
+      </div>
+      <div class="fg"><label>Adres</label><input id="eAd"/></div>
+      <div class="fg"><label>Kategori</label><input id="eCat"/></div>
+      <div class="fg"><label>Notlar</label><textarea id="eNt" placeholder="Bu firma hakkında notlar..."></textarea></div>
+    </div>
+    <div class="mbtns">
+      <button class="mbtn cancel" onclick="closeModal()">İptal</button>
+      <button class="mbtn save" onclick="saveEdit()"><i class="fas fa-save me-1"></i>Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+const SK = 'gmaps_crm_v3';
+let db = [], fil = [], cur = 1, sCol = '', sDir = 1, _id = 1;
+const PG = 30;
+
+// ─── STORAGE ──────────────────────────────────────────────────────────────────
+function load() {
+  try { const d = JSON.parse(localStorage.getItem(SK)||'{}'); db = d.b||[]; _id = d.i||db.length+1; } catch(e) { db = []; }
+}
+function save() { localStorage.setItem(SK, JSON.stringify({b:db,i:_id})); }
+function nid() { return _id++; }
+
+// ─── SCRAPE REQUEST ───────────────────────────────────────────────────────────
+function checkUrl() {
+  const v = document.getElementById('urlInput').value.trim();
+  document.getElementById('fetchBtn').disabled = !v.includes('google.com/maps');
+}
+
+function requestScrape() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) return;
+  // Store pending URL for Claude to pick up
+  localStorage.setItem('gmaps_crm_pending', JSON.stringify({url, ts: Date.now(), status:'pending'}));
+  setProgress(10, '⏳ Claude scraping başlatıyor... Lütfen bekleyin.');
+  document.getElementById('fetchBtn').disabled = true;
+  document.getElementById('fetchTxt').textContent = 'Çekiliyor...';
+  // Poll for completion
+  window._pollT = setInterval(checkPending, 2000);
+}
+
+function checkPending() {
+  const raw = localStorage.getItem('gmaps_crm_pending');
+  if (!raw) return;
+  try {
+    const p = JSON.parse(raw);
+    if (p.status === 'done') {
+      clearInterval(window._pollT);
+      localStorage.removeItem('gmaps_crm_pending');
+      resetFetch();
+      setProgress(0, '');
+      toast('✅ ' + (p.count||0) + ' firma eklendi!', 'ok');
+      doFilter(); updateStats();
+    } else if (p.status === 'error') {
+      clearInterval(window._pollT);
+      localStorage.removeItem('gmaps_crm_pending');
+      resetFetch();
+      setProgress(0, '');
+      toast('Hata: ' + (p.msg||'Bilinmeyen'), 'err');
+    } else if (p.progress) {
+      setProgress(p.progress.pct||20, p.progress.msg||'Scraping...');
+    }
+  } catch(e) {}
+}
+
+function resetFetch() {
+  document.getElementById('fetchBtn').disabled = false;
+  document.getElementById('fetchTxt').textContent = 'Veri Çek';
+  document.getElementById('urlInput').value = '';
+  checkUrl();
+}
+
+function setProgress(pct, msg) {
+  const bar = document.getElementById('progBar');
+  const msgEl = document.getElementById('progMsg');
+  if (pct > 0) {
+    bar.style.width = pct + '%';
+    msgEl.textContent = msg;
+    msgEl.className = 'show';
+  } else {
+    bar.style.width = '0%';
+    msgEl.className = '';
+  }
+}
+
+// ─── INJECT (called by Claude) ────────────────────────────────────────────────
+window.crmInject = function(businesses, sourceUrl, progress) {
+  if (progress !== undefined) {
+    setProgress(progress.pct||50, progress.msg||'');
+    return;
+  }
+  if (!Array.isArray(businesses)) businesses = [businesses];
+  let added = 0;
+  businesses.forEach(function(b) {
+    if (!b.name && !b.phone) return;
+    const dup = db.find(function(x) {
+      return (b.maps_url && x.maps_url === b.maps_url) ||
+             (b.phone && b.name && x.phone === b.phone && x.name === b.name);
+    });
+    if (dup) return;
+    db.unshift({ id:nid(), name:b.name||'', category:b.category||'', address:b.address||'',
+      phone:b.phone||'', website:b.website||'', rating:b.rating?+b.rating:null,
+      review_count:b.review_count?+b.review_count:null, hours:b.hours||'',
+      maps_url:b.maps_url||sourceUrl||'', notes:'', status:'Yeni',
+      created_at:new Date().toISOString() });
+    added++;
+  });
+  // Mark pending as done
+  try {
+    const p = JSON.parse(localStorage.getItem('gmaps_crm_pending')||'{}');
+    p.status = 'done'; p.count = added;
+    localStorage.setItem('gmaps_crm_pending', JSON.stringify(p));
+  } catch(e) {}
+  save(); doFilter(); updateStats();
+  setProgress(0, '');
+  clearInterval(window._pollT);
+  resetFetch();
+  toast('\u2705 ' + added + ' firma CRM\u2019e eklendi!', 'ok');
+  return added + ' firma eklendi';
+};
+
+// ─── STATS ────────────────────────────────────────────────────────────────────
+function updateStats() {
+  const tot = db.length;
+  const cal = db.filter(function(b){return b.status==='Arandı';}).length;
+  const intr = db.filter(function(b){return b.status==='İlgileniyor';}).length;
+  const rs = db.filter(function(b){return b.rating;}).map(function(b){return b.rating;});
+  const avg = rs.length ? (rs.reduce(function(a,b){return a+b;},0)/rs.length).toFixed(1) : '—';
+  document.getElementById('sTotal').textContent = tot;
+  document.getElementById('sCalled').textContent = cal;
+  document.getElementById('sInt').textContent = intr;
+  document.getElementById('sRating').textContent = avg;
+}
+
+// ─── FILTER/SORT ──────────────────────────────────────────────────────────────
+function doFilter() {
+  const q = (document.getElementById('srch').value||'').toLowerCase();
+  const sf = document.getElementById('stFlt').value;
+  fil = db.filter(function(b) {
+    const mq = !q || [b.name,b.category,b.address,b.phone,b.website].some(function(v){return (v||'').toLowerCase().indexOf(q)>=0;});
+    return mq && (!sf || b.status===sf);
+  });
+  if (sCol) resort();
+  cur = 1; render();
+}
+function sortBy(col) { sDir = sCol===col?-sDir:1; sCol=col; resort(); render(); }
+function resort() { fil.sort(function(a,b){const av=a[sCol]??'',bv=b[sCol]??'';return(typeof av==='string'?av.localeCompare(bv,'tr'):av-bv)*sDir;}); }
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+const SC = {'Yeni':'sYeni','Arandı':'sArandi','İlgileniyor':'sIlgileniyor','İlgilenmiyor':'sIlgilenmiyor','Müşteri':'sMusteri'};
+function sc(s){return SC[s]||'sYeni';}
+
+function render() {
+  const tbody = document.getElementById('tbody');
+  const tot = fil.length;
+  document.getElementById('tblCount').textContent = '(' + tot + ' kayıt)';
+  if (!tot) {
+    tbody.innerHTML = '<tr><td colspan="9"><div class="emp"><i class="fas fa-map-marker-alt"></i>Henøz firma yok.<br><small style="color:var(--mt)">Yukarıya bir Google Maps URL\'si yapıştırın</small></div></td></tr>';
+    document.getElementById('pgInfo').textContent = '';
+    document.getElementById('pgNav').innerHTML = '';
+    return;
+  }
+  const pages = Math.ceil(tot/PG);
+  if (cur > pages) cur = pages;
+  const s = (cur-1)*PG, slice = fil.slice(s, s+PG);
+  tbody.innerHTML = slice.map(function(b) {
+    const st = b.status||'Yeni';
+    const strs = b.rating ? ('★'.repeat(Math.min(5,Math.round(b.rating)))+'☆'.repeat(5-Math.min(5,Math.round(b.rating)))) : '';
+    const ph = b.phone ? '<a class="ta ph" href="tel:'+b.phone+'"><i class="fas fa-phone" style="font-size:.68rem;margin-right:3px"></i>'+b.phone+'</a>' : '<span class="dim">—</span>';
+    const wb = b.website ? '<a class="ta wb" href="'+b.website+'" target="_blank" rel="noopener"><i class="fas fa-globe" style="font-size:.68rem;margin-right:3px"></i>Site</a>' : '<span class="dim">—</span>';
+    const ml = b.maps_url ? '<a href="'+b.maps_url+'" target="_blank" title="Google Maps\'te aç"><i class="fas fa-external-link-alt"></i></a>' : '';
+    const nt = b.notes ? '<div class="nt">'+b.notes.substring(0,45)+'</div>' : '';
+    const opts = ['Yeni','Arandı','İlgileniyor','İlgilenmiyor','Müşteri'].map(function(x){return '<option'+(x===st?' selected':'')+'>'+x+'</option>';}).join('');
+    const hrs = (b.hours||'').split('\n')[0]||'—';
+    return '<tr>'
+      +'<td class="fn">'+(b.name||'—')+'<span style="opacity:.6">'+ml+'</span>'+nt+'</td>'
+      +'<td>'+(b.category?'<span class="tg">'+b.category+'</span>':'<span class="dim">—</span>')+'</td>'
+      +'<td style="max-width:155px;color:var(--mt);font-size:.78rem">'+(b.address||'—')+'</td>'
+      +'<td>'+ph+'</td><td>'+wb+'</td>'
+      +'<td>'+(b.rating?'<div class="str">'+strs+'</div><div class="dim">'+b.rating+(b.review_count?' ('+b.review_count.toLocaleString('tr')+')':'')+'</div>':'<span class="dim">—</span>')+'</td>'
+      +'<td><span class="hc dim" title="'+(b.hours||'')+'">'+hrs+'</span></td>'
+      +'<td><select class="ssel '+sc(st)+'" onchange="chgSt('+b.id+',this.value,this)">'+opts+'</select></td>'
+      +'<td style="white-space:nowrap"><button class="bic be" onclick="openEdit('+b.id+')" title="Düzenle"><i class="fas fa-pen"></i></button> <button class="bic bd" onclick="delBiz('+b.id+')" title="Sil"><i class="fas fa-trash"></i></button></td>'
+      +'</tr>';
+  }).join('');
+  document.getElementById('pgInfo').textContent = (s+1)+'–'+Math.min(s+PG,tot)+' / '+tot;
+  renderPg(pages);
+}
+
+function renderPg(n) {
+  const div = document.getElementById('pgNav');
+  if (n<=1){div.innerHTML='';return;}
+  const prev = '<button class="pgb" onclick="goPg('+(cur-1)+')" '+(cur===1?'disabled':'')+'>‹</button>';
+  const next = '<button class="pgb" onclick="goPg('+(cur+1)+')" '+(cur===n?'disabled':'')+'>›</button>';
+  let btns = '';
+  const st=Math.max(1,cur-2),en=Math.min(n,cur+2);
+  if(st>1) btns+='<button class="pgb" onclick="goPg(1)">1</button>'+(st>2?'<span style="color:var(--mt);padding:0 4px">…</span>':'');
+  for(let i=st;i<=en;i++) btns+='<button class="pgb'+(i===cur?' act':'')+'" onclick="goPg('+i+')">'+i+'</button>';
+  if(en<n) btns+=(en<n-1?'<span style="color:var(--mt);padding:0 4px">…</span>':'')+'<button class="pgb" onclick="goPg('+n+')">'+n+'</button>';
+  div.innerHTML = prev+btns+next;
+}
+function goPg(p){const n=Math.ceil(fil.length/PG);if(p<1||p>n)return;cur=p;render();}
+
+// ─── ACTIONS ──────────────────────────────────────────────────────────────────
+function chgSt(id,s,el){const b=db.find(function(x){return x.id===id;});if(b){b.status=s;save();}el.className='ssel '+sc(s);updateStats();}
+
+function openEdit(id) {
+  const b = db.find(function(x){return x.id===id;});
+  if(!b) return;
+  document.getElementById('eId').value=id;
+  document.getElementById('eSt').value=b.status||'Yeni';
+  document.getElementById('ePh').value=b.phone||'';
+  document.getElementById('eWb').value=b.website||'';
+  document.getElementById('eAd').value=b.address||'';
+  document.getElementById('eCat').value=b.category||'';
+  document.getElementById('eNt').value=b.notes||'';
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+function saveEdit(){
+  const id=+document.getElementById('eId').value;
+  const b=db.find(function(x){return x.id===id;});
+  if(b){b.status=document.getElementById('eSt').value;b.phone=document.getElementById('ePh').value;b.website=document.getElementById('eWb').value;b.address=document.getElementById('eAd').value;b.category=document.getElementById('eCat').value;b.notes=document.getElementById('eNt').value;save();}
+  closeModal();doFilter();updateStats();toast('Firma güncellendi ✅');
+}
+function delBiz(id){if(!confirm('Bu firmayı silmek istediğinizden emin misiniz?'))return;db=db.filter(function(x){return x.id!==id;});save();doFilter();updateStats();toast('Firma silindi');}
+function confirmClear(){if(!confirm('Tüm firma verileri silinsin mi?'))return;db=[];_id=1;save();doFilter();updateStats();toast('Tüm veriler silindi');}
+
+// ─── EXPORT ───────────────────────────────────────────────────────────────────
+function exportCSV(){
+  if(!db.length){toast('Veri yok','err');return;}
+  const cols=['name','category','address','phone','website','rating','review_count','hours','status','notes','maps_url'];
+  const hdr=['Firma Adı','Kategori','Adres','Telefon','Website','Puan','Yorum','Saatler','Durum','Notlar','Maps URL'];
+  const rows=db.map(function(b){return cols.map(function(c){return'"'+(b[c]||'').toString().replace(/"/g,'""')+'"';}).join(',');});
+  dl('\ufeff'+hdr.join(',')+'\n'+rows.join('\n'),'crm_'+d()+'.csv','text/csv;charset=utf-8');
+  toast(db.length+' firma CSV olarak indirildi');
+}
+function exportJSON(){
+  if(!db.length){toast('Veri yok','err');return;}
+  dl(JSON.stringify(db,null,2),'crm_'+d()+'.json','application/json');
+  toast(db.length+' firma JSON olarak indirildi');
+}
+function dl(content,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();}
+function d(){return new Date().toISOString().slice(0,10);}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function toast(msg,type){
+  type=type||'ok';
+  const d=document.createElement('div');
+  d.className='tst '+type;
+  d.innerHTML='<i class="fas fa-'+(type==='ok'?'check-circle':type==='err'?'exclamation-circle':'info-circle')+'" style="color:'+(type==='ok'?'#6ee7b7':type==='err'?'#fca5a5':'#818cf8')+'"></i> '+msg;
+  document.getElementById('toasts').appendChild(d);
+  setTimeout(function(){d.style.opacity='0';d.style.transition='opacity .3s';setTimeout(function(){d.remove();},300);},3500);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+load();doFilter();updateStats();
+</script>
+</body>
+</html>
