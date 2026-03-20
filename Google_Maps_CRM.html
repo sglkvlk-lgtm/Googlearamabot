@@ -32,11 +32,10 @@ body{background:var(--bg);color:var(--tx);font-family:'Segoe UI',system-ui,sans-
 #progMsg{background:rgba(79,70,229,.12);color:var(--a);font-size:.78rem;padding:5px 20px;display:none;border-bottom:1px solid rgba(79,70,229,.2);flex-shrink:0;align-items:center;justify-content:space-between;gap:12px}
 #progMsg.show{display:flex}
 #progMsgTxt{flex:1}
-#progTimer{display:flex;align-items:center;gap:6px;font-size:.76rem;white-space:nowraw;font-variant-numeric:tabular-nums}
+#progTimer{display:flex;align-items:center;gap:6px;font-size:.76rem;white-space:nowrap;font-variant-numeric:tabular-nums}
 #progTimer .dot{width:7px;height:7px;border-radius:50%;background:var(--s);animation:blink 1s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
-#progTimer.stale{color:var(--d)}
-#progTimer.stale .dot{background:var(--d);animation:none}
+/* stale class removed */
 
 /* STATS */
 #stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:14px 20px;flex-shrink:0;border-bottom:1px solid var(--br)}
@@ -116,18 +115,17 @@ tbody td{padding:9px 14px;font-size:.85rem;vertical-align:middle}
 
 /* Scrollbar */
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--br);border-radius:3px}
-.hc{max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help}
+.hc{max-width:120px;white-space:nowraw;overflow:hidden;text-overflow:ellipsis;cursor:help}
 </style>
 </head>
 <body>
-
 <!-- TOP BAR -->
 <div id="topbar">
   <div class="brand"><i class="fas fa-map-marked-alt"></i>Google Maps CRM</div>
   <div class="url-row">
-    <input id="urlInput" type="url" placeholder="Google Maps arama URL'sini yapıştırın... (google.com/maps/search/...)" oninput="checkUrl()"/>
+    <input id="urlInput" type="url" placeholder="Google Maps arama URL'sini yapıştűrűn... (google.com/maps/search/...)" oninput="checkUrl()"/>
     <button id="fetchBtn" onclick="requestScrape()" disabled>
-      <i class="fas fa-rocket" id="fetchIco"></i><span id="fetchTxt">Veri Çek</span>
+      <i class="fas fa-rocket" id="fetchIco"></i><span id="fetchTxt">Veri Çek:</span>
     </button>
   </div>
   <div class="topbar-btns">
@@ -213,7 +211,7 @@ tbody td{padding:9px 14px;font-size:.85rem;vertical-align:middle}
 const SK = 'gmaps_crm_v3';
 let db = [], fil = [], cur = 1, sCol = '', sDir = 1, _id = 1;
 const PG = 30;
-let _startTs = 0, _lastActivity = 0, _timerT = null;
+let _startTs = 0, _timerT = null;
 
 // ─── STORAGE ──────────────────────────────────────────────────────────────────
 function load() {
@@ -231,14 +229,15 @@ function checkUrl() {
 function requestScrape() {
   const url = document.getElementById('urlInput').value.trim();
   if (!url) return;
+  // Open Google Maps in new tab — Claude will read the open tab
+  window.open(url, '_blank');
   // Store pending URL for Claude to pick up
   localStorage.setItem('gmaps_crm_pending', JSON.stringify({url, ts: Date.now(), status:'pending'}));
   _startTs = Date.now();
-  _lastActivity = Date.now();
-  setProgress(10, '⏳ Claude scraping başlatıyor... Lütfen bekleyin.');
+  setProgress(10, '🗺 Google Maps açıldı — Claude veri çekiyor...');
   document.getElementById('fetchBtn').disabled = true;
   document.getElementById('fetchTxt').textContent = 'Çekiliyor...';
-  // Start elapsed timer
+  // Start elapsed timer (no stale warning — just elapsed time)
   clearInterval(_timerT);
   _timerT = setInterval(updateTimer, 1000);
   // Poll for completion
@@ -250,12 +249,7 @@ function updateTimer() {
   const mins = Math.floor(elapsed / 60);
   const secs = elapsed % 60;
   document.getElementById('progTimerVal').textContent = mins + ':' + (secs < 10 ? '0' : '') + secs;
-  const timerEl = document.getElementById('progTimer');
-  const stale = (Date.now() - _lastActivity) > 60000;
-  timerEl.className = stale ? 'stale' : '';
-  if (stale) {
-    document.getElementById('progMsgTxt').textContent = '⚠ Claude yanıt vermiyor — lütfen bekleyin veya sayfayı yenileyin.';
-  }
+  // No stale warning — dot always pulses while working
 }
 
 function checkPending() {
@@ -277,8 +271,6 @@ function checkPending() {
       setProgress(0, '');
       toast('Hata: ' + (p.msg||'Bilinmeyen'), 'err');
     } else if (p.progress) {
-      _lastActivity = Date.now();
-      document.getElementById('progTimer').className = '';
       setProgress(p.progress.pct||20, p.progress.msg||'Scraping...');
     }
   } catch(e) {}
@@ -286,7 +278,7 @@ function checkPending() {
 
 function resetFetch() {
   clearInterval(_timerT); _timerT = null;
-  _startTs = 0; _lastActivity = 0;
+  _startTs = 0;
   document.getElementById('progTimer').className = '';
   document.getElementById('progTimerVal').textContent = '0:00';
   document.getElementById('fetchBtn').disabled = false;
@@ -392,6 +384,12 @@ function render() {
   tbody.innerHTML = slice.map(function(b) {
     const st = b.status||'Yeni';
     const strs = b.rating ? ('★'.repeat(Math.min(5,Math.round(b.rating)))+'☆'.repeat(5-Math.min(5,Math.round(b.rating)))) : '';
+    const ph = b.ps = Math.ceil(tot/PG);
+  if (cur > pages) cur = pages;
+  const s = (cur-1)*PG, slice = fil.slice(s, s+PG);
+  tbody.innerHTML = slice.map(function(b) {
+    const st = b.status||'Yeni';
+    const strs = b.rating ? ('★'.repeat(Math.min(5,Math.round(b.rating)))+'☆'.repeat(5-Math.min(5,Math.round(b.rating)))) : '';
     const ph = b.phone ? '<a class="ta ph" href="tel:'+b.phone+'"><i class="fas fa-phone" style="font-size:.68rem;margin-right:3px"></i>'+b.phone+'</a>' : '<span class="dim">—</span>';
     const wb = b.website ? '<a class="ta wb" href="'+b.website+'" target="_blank" rel="noopener"><i class="fas fa-globe" style="font-size:.68rem;margin-right:3px"></i>Site</a>' : '<span class="dim">—</span>';
     const ml = b.maps_url ? '<a href="'+b.maps_url+'" target="_blank" title="Google Maps\'te aç"><i class="fas fa-external-link-alt"></i></a>' : '';
@@ -455,10 +453,7 @@ function confirmClear(){if(!confirm('Tüm firma verileri silinsin mi?'))return;d
 // ─── EXPORT ───────────────────────────────────────────────────────────────────
 function exportCSV(){
   if(!db.length){toast('Veri yok','err');return;}
-  const cols=['name','category','address','phone','website','rating','review_count','hours','status','notes','maps_url'];
-  const hdr=['Firma Adı','Kategori','Adres','Telefon','Website','Puan','Yorum','Saatler','Durum','Notlar','Maps URL'];
-  const rows=db.map(function(b){return cols.map(function(c){return'"'+(b[c]||'').toString().replace(/"/g,'""')+'"';}).join(',');});
-  dl('\ufeff'+hdr.join(',')+'\n'+rows.join('\n'),'crm_'+d()+'.csv','text/csv;charset=utf-8');
+  const cols=['name','category','address','phone','website','rating','review_counn('\n'),'crm_'+d()+'.csv','text/csv;charset=utf-8');
   toast(db.length+' firma CSV olarak indirildi');
 }
 function exportJSON(){
